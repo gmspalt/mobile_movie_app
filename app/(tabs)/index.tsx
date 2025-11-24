@@ -1,72 +1,153 @@
-import { icons } from "@/constants/icons";
-import { images } from "@/constants/images";
-import { Link } from "expo-router";
-import { ActivityIndicator, FlatList, Image, ScrollView, Text, View } from "react-native";
-import SearchBar from "@/components/SearchBar";
-import { useRouter } from "expo-router";
-import { act, use } from "react";
-import useFetch from "@/services/useFetch";
-import { fetchMovies } from "@/services/api";
-import MovieCard from "@/components/MovieCard";
+import { View, Text, ActivityIndicator, StyleSheet, Image } from 'react-native'
+import React, { useEffect, useState } from 'react'
+import MapView, { Marker, Callout, PROVIDER_DEFAULT } from 'react-native-maps'
+import { fetchEvents } from '@/services/eventsApi'
+import { Event } from '@/types/event'
+import { images } from '@/constants/images'
+import { icons } from '@/constants/icons'
 
 export default function Index() {
-  const router = useRouter();
+  const [events, setEvents] = useState<Event[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  //pass a query to fetchMovie() function, which we pass to useFetch() hook
-  const { data: movies, 
-    loading: moviesLoading, 
-    error: moviesError } = useFetch(() => fetchMovies({ query: '' }));
+  useEffect(() => {
+    loadEvents()
+  }, [])
+
+  const loadEvents = async () => {
+    setLoading(true)
+    const data = await fetchEvents()
+
+    if (data) {
+      setEvents(data)
+      setError(null)
+    } else {
+      setError('Failed to load events')
+    }
+
+    setLoading(false)
+  }
+
+  // Calculate the center point of all events for initial map region
+  const getMapRegion = () => {
+    if (events.length === 0) {
+      // Default to NYC if no events
+      return {
+        latitude: 40.7128,
+        longitude: -74.0060,
+        latitudeDelta: 0.5,
+        longitudeDelta: 0.5,
+      }
+    }
+
+    const avgLat = events.reduce((sum, event) => sum + Number(event.latitude), 0) / events.length
+    const avgLng = events.reduce((sum, event) => sum + Number(event.longitude), 0) / events.length
+
+    return {
+      latitude: avgLat,
+      longitude: avgLng,
+      latitudeDelta: 0.5,
+      longitudeDelta: 0.5,
+    }
+  }
+
+  const formatDateTime = (dateTimeString: string) => {
+    const date = new Date(dateTimeString)
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    })
+  }
+
+  if (loading) {
+    return (
+      <View className="flex-1 bg-primary justify-center items-center">
+        <Image source={images.bg} className="absolute w-full h-full z-0" />
+        <ActivityIndicator size="large" color="#6C63FF" />
+        <Text className="text-white mt-4">Loading events...</Text>
+      </View>
+    )
+  }
+
+  if (error) {
+    return (
+      <View className="flex-1 bg-primary justify-center items-center px-5">
+        <Image source={images.bg} className="absolute w-full h-full z-0" />
+        <Text className="text-white text-lg">{error}</Text>
+      </View>
+    )
+  }
 
   return (
     <View className="flex-1 bg-primary">
-      <Image source={images.bg} className="absolute w-full z-0"/>
+      <Image source={images.bg} className="absolute w-full h-full z-0" />
 
-      <ScrollView className="flex-1 px-5" contentContainerStyle={{ minHeight: '100%', paddingBottom: 10}}>
-        <Image source={icons.logo} className="w-12 h-10 mt-20 mb-5 mx-auto" />
+      {/* Header */}
+      <View className="px-5 pt-20 pb-4 z-10">
+        <Image source={icons.logo} className="w-12 h-10 mb-3 mx-auto" />
+        <Text className="text-white text-2xl font-bold text-center">Events Map</Text>
+        <Text className="text-[#A8B5DB] text-sm text-center mt-1">
+          {events.length} {events.length === 1 ? 'event' : 'events'} nearby
+        </Text>
+      </View>
 
-        {moviesLoading ? ( //check whether we're currently loading movies using an "<ActivityIndicator />" component
-          <ActivityIndicator 
-            size="large"
-            color="#0000FF"
-            className='mt-10 self-center'
-          />
-
-          ) : moviesError ? ( //if there's an error, show the error message
-          <Text>Error: {moviesError?.message}</Text>
-
-          ) : ( //else, show search bar & rest of content
-          <View className="flex-1 mt-5">
-            <SearchBar 
-              onPress={() => router.push('/search')}
-              placeholder="Search for a movie"   
-            />
-
-            <>
-              <Text className='text-lg text-white font-bold mt-5 mb-3'>Latest Movies</Text>
-
-              <FlatList
-                data={movies}
-                renderItem={({ item }) => ( //use () to automatically return contents
-                  <MovieCard
-                    {...item}
-                  />
-                )}
-
-                //helps React Native determine how many elements and where they're positioned
-                keyExtractor={(item) => item.id.toString()}
-                numColumns={3}
-                columnWrapperStyle={{ justifyContent: 'flex-start', gap: 20, paddingRight: 5, marginBottom: 10 }}
-                showsVerticalScrollIndicator={false}
-                className="mt-2 pb-32"
-                scrollEnabled={false}
-              />
-            </>
-          </View>
-
-
-        )}
-
-      </ScrollView>
+      {/* Map */}
+      <View className="flex-1 mx-5 mb-24 rounded-2xl overflow-hidden border-2 border-[#2D2D44]">
+        <MapView
+          provider={PROVIDER_DEFAULT}
+          style={styles.map}
+          initialRegion={getMapRegion()}
+          showsUserLocation={true}
+          showsMyLocationButton={true}
+        >
+          {events.map((event) => (
+            <Marker
+              key={event.id}
+              coordinate={{
+                latitude: Number(event.latitude),
+                longitude: Number(event.longitude),
+              }}
+              pinColor="#6C63FF"
+            >
+              <Callout>
+                <View style={styles.callout}>
+                  <Text style={styles.calloutTitle}>{event.title}</Text>
+                  <Text style={styles.calloutDate}>{formatDateTime(event.date_time)}</Text>
+                  <Text style={styles.calloutLocation}>{event.location}</Text>
+                </View>
+              </Callout>
+            </Marker>
+          ))}
+        </MapView>
+      </View>
     </View>
-  );
+  )
 }
+
+const styles = StyleSheet.create({
+  map: {
+    width: '100%',
+    height: '100%',
+  },
+  callout: {
+    padding: 8,
+    minWidth: 200,
+  },
+  calloutTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  calloutDate: {
+    fontSize: 14,
+    color: '#6C63FF',
+    marginBottom: 2,
+  },
+  calloutLocation: {
+    fontSize: 12,
+    color: '#666',
+  },
+})
