@@ -36,8 +36,8 @@ import SearchBar from '@/components/SearchBar'
 
 
   return (
-    <View className="flex-1 bg-primary"> {/* change background color */}
-      <Image source={images.bg} className="flex-1 absolute w-full z-0" resizeMode="cover"/> {/* set background image */}
+    <View className="flex-1 bg-primary">{/* change background color */}
+      <Image source={images.bg} className="flex-1 absolute w-full z-0" resizeMode="cover"/>{/* set background image */}
 
       <FlatList 
         data={movies} //if no movies, pass empty array
@@ -49,11 +49,11 @@ import SearchBar from '@/components/SearchBar'
         contentContainerStyle={{ paddingBottom: 100 }} // style for the whole list
         ListHeaderComponent={ //make search bar displayed at the top of the list
           <>
-            <View className="w-full flex-row justify-center mt-20 items-center"> {/* Logo at the top of list */}
+            <View className="w-full flex-row justify-center mt-20 items-center">{/* Logo at the top of list */}
               <Image source={icons.logo} className="w-12 h-10" />
             </View>
 
-            <View className="my-5 "> {/* Search Bar btw/ Logo and list */}
+            <View className="my-5">{/* Search Bar btw/ Logo and list */}
               <SearchBar 
                 placeholder="Search movies..."
                 value={searchQuery}
